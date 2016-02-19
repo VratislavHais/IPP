@@ -215,6 +215,18 @@ if ($argumenty["help"]) {
 $files = getInputFiles(realpath($argumenty["input"]));
 $output = getOutputFile($argumenty["output"]);
 
-
+foreach ($files as $file) {
+	$content = file_get_contents($file);
+	$patterns = array();
+	array_push($patterns, "/\/\*(.|\\n)*\*\//");
+	array_push($patterns, "/\/\/.*\\n/");
+	array_push($patterns, "/\"(.|\\n)*\"/");
+	array_push($patterns, "/\'(.|\\n)*\'/");
+	array_push($patterns, "/\#.*\\n/");
+	foreach($patterns as $pattern) {
+		$content = preg_replace($pattern, "", $content);
+	}
+	echo "content: " . $content . "\n";
+}
 
 ?>
