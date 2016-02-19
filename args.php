@@ -206,6 +206,7 @@ function getOutputFile($file) {
 	return $output;	
 }
 
+
 $argumenty = arguments($argv);
 if ($argumenty["help"]) {
 	help();
@@ -214,15 +215,15 @@ if ($argumenty["help"]) {
 
 $files = getInputFiles(realpath($argumenty["input"]));
 $output = getOutputFile($argumenty["output"]);
+$patterns = array();
+array_push($patterns, "/\/\*(.|\\n)*\*\//");
+array_push($patterns, "/\/\/.*\\n/");
+array_push($patterns, "/\"(.|\\n)*\"/");
+array_push($patterns, "/\'(.|\\n)*\'/");
+array_push($patterns, "/\#.*\\n/");
 
 foreach ($files as $file) {
 	$content = file_get_contents($file);
-	$patterns = array();
-	array_push($patterns, "/\/\*(.|\\n)*\*\//");
-	array_push($patterns, "/\/\/.*\\n/");
-	array_push($patterns, "/\"(.|\\n)*\"/");
-	array_push($patterns, "/\'(.|\\n)*\'/");
-	array_push($patterns, "/\#.*\\n/");
 	foreach($patterns as $pattern) {
 		$content = preg_replace($pattern, "", $content);
 	}
