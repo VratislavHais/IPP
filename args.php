@@ -221,13 +221,20 @@ array_push($patterns, "/\/\/.*\\n/");
 array_push($patterns, "/\"(.|\\n)*\"/");
 array_push($patterns, "/\'(.|\\n)*\'/");
 array_push($patterns, "/\#.*\\n/");
+$fNamePattern = "/\s+([A-Za-z]\w+)\s*\(/";		//pattern kterym ziskame jmeno fce
+//$fReturnTypePattern = "//"
 
+//$allPattern = "/([A-Za-z_]\w+\s*?\*)\s+([A-Za-z_]\w+)\s*\(.*)\s*;/";
+$allPattern = "/\s*(?<retType>(?:\s*[A-Za-z_]\w*[\s\*]+)+)\s+(?<funcName>([A-Za-z_]\w+))\s*\((?<param>/"
+$allPattern = "/([A-Za-z_]\w+\s*\*?\s+)*/";
 foreach ($files as $file) {
 	$content = file_get_contents($file);
+	echo $file . " file\n";
 	foreach($patterns as $pattern) {
 		$content = preg_replace($pattern, "", $content);
 	}
-	echo "content: " . $content . "\n";
+	preg_match($allPattern, $content, $match);
+	print_r($match);
 }
 
 ?>
