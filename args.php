@@ -68,7 +68,7 @@ function arguments($argv) {
 		"output" => false,
 		"pretty" => false,
 		"inline" => false,
-		"max-par" => false,
+		"max-par" => -1,
 		"no-duplicates" => false,
 		"remove-whitespace" => false,
 		);
@@ -121,7 +121,7 @@ function arguments($argv) {
 			if ($split[1] === '') {
 				failParam("--max-par");
 			}
-			if (preg_match('/^[0-9]/', $split[1])) {
+			if (preg_match('/^\d+$/', $split[1])) {
 				$received["max-par"] = intval($split[1]);
 			}
 			else {
@@ -206,6 +206,42 @@ function getOutputFile($file) {
 	return $output;	
 }
 
+/**
+* Funkce na zaklade vstupnich parametru vyfiltruje funkce splnujici pozadavky uzivatele
+* @param pole $argumenty obsahuje zaznamy ze vstupnich argumentu programu
+* @param dvojrozmerne pole $array obsahuje zaznamy o deklaracich funkci (pole ma prvky retType, funcName a params, ktere obsahuji 
+*			informace o dane funkci [navratovou hodnotu, jeji nazev a parametry])
+* @param string $filePath obsahuje cestu ke zpracovanemu souboru
+*/
+function prepForWrite($argumenty, $array, $filePath) {
+	$argArray = array();
+	$varArgs;
+	for ($i = 0; $i < count($array["funcName"]); $i++) {
+		if ($argumenty["inline"] && preg_match("/inline/", $array["retType"][$i])) {
+			continue;
+		}
+		if ($argumenty["no-duplicates"]) {
+			$j = $i-1;
+			while($j >= 0) {
+				if ($array["funcName"][$i] == $array["funcName"][$j]) {		//jsou duplicitni
+					break;
+				}
+				$j--;
+			}
+			if ($j >= 0) {		//byla zjistena duplicita funkci
+				continue;
+			}
+		}
+		$varArgs = preg_match("/\.\.\./", $array["params"][$i]);
+		$argArray = preg_split("/,/", $array["params"][$i]);
+		if ($argumenty["max-par"] > -1) {
+			if ((count($argArray)-intval($varArgs)) > $argumenty["max-par"]) {
+				continue;
+			}
+		}
+	}
+}
+
 
 $argumenty = arguments($argv);
 if ($argumenty["help"]) {
@@ -221,17 +257,16 @@ array_push($patterns, "/\/\/.*\\n/");
 array_push($patterns, "/\"(.|\\n)*\"/");
 array_push($patterns, "/\'(.|\\n)*\'/");
 array_push($patterns, "/\#.*\\n/");
-$fNamePattern = "/\s+([A-Za-z]\w+)\s*\(/";		//pattern kterym ziskame jmeno fce
-//$fReturnTypePattern = "//
 $allPattern = "/\s*(?<retType>(?:\s*[A-Za-z_]\w+[\s\*]+)+)\s*(?<funcName>(?:[A-Za-z_]\w+))\s*\((?<params>(?:[\s\S]*?)*)\)\s*[;|{]/";
 foreach ($files as $file) {
 	$content = file_get_contents($file);
-	echo $file . " file\n";
 	foreach($patterns as $pattern) {
 		$content = preg_replace($pattern, "", $content);
 	}
 	preg_match_all($allPattern, $content, $match);
-	print_r($match);
+	if (count($match["funcName"]) > 0) {		//test zda je v souboru vubec nejaka deklarace funkce
+		prepForWrite($argumenty, $match, $file);	
+	}
 }
 
 ?>
