@@ -222,18 +222,15 @@ array_push($patterns, "/\"(.|\\n)*\"/");
 array_push($patterns, "/\'(.|\\n)*\'/");
 array_push($patterns, "/\#.*\\n/");
 $fNamePattern = "/\s+([A-Za-z]\w+)\s*\(/";		//pattern kterym ziskame jmeno fce
-//$fReturnTypePattern = "//"
-
-//$allPattern = "/([A-Za-z_]\w+\s*?\*)\s+([A-Za-z_]\w+)\s*\(.*)\s*;/";
-$allPattern = "/\s*(?<retType>(?:\s*[A-Za-z_]\w*[\s\*]+)+)\s+(?<funcName>([A-Za-z_]\w+))\s*\((?<param>/"
-$allPattern = "/([A-Za-z_]\w+\s*\*?\s+)*/";
+//$fReturnTypePattern = "//
+$allPattern = "/\s*(?<retType>(?:\s*[A-Za-z_]\w+[\s\*]+)+)\s*(?<funcName>(?:[A-Za-z_]\w+))\s*\((?<params>(?:[\s\S]*?)*)\)\s*[;|{]/";
 foreach ($files as $file) {
 	$content = file_get_contents($file);
 	echo $file . " file\n";
 	foreach($patterns as $pattern) {
 		$content = preg_replace($pattern, "", $content);
 	}
-	preg_match($allPattern, $content, $match);
+	preg_match_all($allPattern, $content, $match);
 	print_r($match);
 }
 
