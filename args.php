@@ -187,23 +187,97 @@ function getInputFiles($dir) {
 
 
 /**
-* do promenne $output otevre pozadovany soubor (nebo stdout) pro zapis
+* zapise vysledek do vystupniho souboru (pripadne na stdout - zalezi na argumentu)
 * @param retezec $file obsahuje cestu k souboru nebo false v pripade, ze chceme vypis na stdout
+* @param retezec $outputText obsahuje vysledek skritpu
 */
-function getOutputFile($file) {
+function writeOutputFile($file, $outputText) {
 	if ($file) {
 		$substr = substr($file, strlen($file)-4);
 		if ($substr == ".xml" || $substr == ".XML") {
-			$output = fopen($file, "w");
+			$output = file_put_contents($file, $outputText);
 		}
 		else {
 			formatFail();
 		}
 	}
 	else {
-		$output = fopen('php://stdout', 'w');
+		$output = file_put_contents('php://stdout', $outputText);
 	}
 	return $output;	
+}
+
+/**
+* funkce vraci relativni cestu k souboru
+* @param string $path je cesta k souboru
+* @param string $input je zadana cesta v parametru
+*/
+function relativePath($path, $input) {
+	return substr($path, strlen($input));
+}
+
+
+function paramProcess($params, $outputText, $spaces, $whitespace) {
+	$counter = 1;
+	foreach ($params as $param) {
+		$param = preg_replace("/\w+$/", "", $param);
+		$param = trim($param);
+		$outputText .= $spaces . $spaces . 'param number="' . $counter . '" type="' . $param . '" />' . "\n";
+		$counter++;
+	}
+	return $outputText;
+}
+
+function functionsTag($argumenty, $outputText) {
+	if ($argumenty["pretty"]) {
+		$outputText .= "\n";
+	}
+	if (is_dir($argumenty["input"])) {
+		if (!preg_match("/\/$/", $argumenty["input"])) {
+			$argumenty["input"] .= "/";
+		}
+		$outputText .= '<functions dir="' . $argumenty["input"] . '">' . "\n";
+	}
+	else {
+		$outputText .= '<functions dir="">' . "\n";
+	}
+	return $outputText;
+}
+
+/**
+* funkce na zaklade argumentu naplni promennou $outputText (ktera je zaroven navratovou hodnotou) pozadovanymi tagy
+* @param string $name obsahuje jmeno zpracovavane funkce
+* @param boolean $varArgs obsahuje zaznam o tom, zda ma funkce promenny pocet argumentu
+* @param string $retType obsahuje typ navratove hodnoty zpracovavane funkce
+* @param pole $params obsahuje veskere argumenty zpracovavane funkce
+* @param string $outputText obsahuje dosavadni vysledky skriptu
+* @param pole $argumenty obsahuje zaznamy o argumentech programu
+* @param string $file obsahuje prave zpracovavany soubor
+*/
+function programOutput($name, $varArgs, $retType, $params, $outputText, $argumenty, $file) {
+	$spaces = "";
+	if ($argumenty["pretty"]) {
+		for ($i = 1; $i <= $argumenty["pretty"]; $i++) {
+			$spaces .= " ";
+		}
+	}
+	if (is_dir($argumenty["input"])) {
+		if (!preg_match("/\/$/", $argumenty["input"])) {
+			$argumenty["input"] .= "/";
+		}
+		$outputText .= $spaces . 'function file="' . relativePath($file, $argumenty["input"]) . '" ';
+	}
+	else {
+		$outputText .= $spaces . 'function file="' . $argumenty["input"] . '" ';
+	}
+	$outputText .=  'name="' . $name . '" varargs="' . (($varArgs) ? "yes" : "no") . '" rettype="';
+	if ($argumenty["remove-whitespace"]) {
+		preg_replace("/\s+/", " ", $retType);
+	}
+	$outputText .= trim($retType) . '">' . "\n";
+	$outputText = paramProcess($params, $outputText, $spaces, $argumenty["remove-whitespace"]);
+	$outputText .= $spaces . "</function>\n";
+	return $outputText;
 }
 
 /**
@@ -212,12 +286,13 @@ function getOutputFile($file) {
 * @param dvojrozmerne pole $array obsahuje zaznamy o deklaracich funkci (pole ma prvky retType, funcName a params, ktere obsahuji 
 *			informace o dane funkci [navratovou hodnotu, jeji nazev a parametry])
 * @param string $filePath obsahuje cestu ke zpracovanemu souboru
+* @param string @outputText je vysledny string, ktery bude zapsan do vystupniho XML souboru
 */
-function prepForWrite($argumenty, $array, $filePath) {
+function prepForWrite($argumenty, $array, $filePath, $outputText) {
 	$argArray = array();
 	$varArgs;
 	for ($i = 0; $i < count($array["funcName"]); $i++) {
-		if ($argumenty["inline"] && preg_match("/inline/", $array["retType"][$i])) {
+		if ($argumenty["inline"] && preg_match("/inline/u", $array["retType"][$i])) {
 			continue;
 		}
 		if ($argumenty["no-duplicates"]) {
@@ -239,7 +314,9 @@ function prepForWrite($argumenty, $array, $filePath) {
 				continue;
 			}
 		}
+		$outputText = programOutput($array["funcName"][$i], $varArgs, $array["retType"][$i], $argArray, $outputText, $argumenty, $filePath);
 	}
+	return $outputText;
 }
 
 
@@ -250,14 +327,15 @@ if ($argumenty["help"]) {
 }
 
 $files = getInputFiles(realpath($argumenty["input"]));
-$output = getOutputFile($argumenty["output"]);
 $patterns = array();
-array_push($patterns, "/\/\*(.|\\n)*\*\//");
-array_push($patterns, "/\/\/.*\\n/");
-array_push($patterns, "/\"(.|\\n)*\"/");
-array_push($patterns, "/\'(.|\\n)*\'/");
-array_push($patterns, "/\#.*\\n/");
-$allPattern = "/\s*(?<retType>(?:\s*[A-Za-z_]\w+[\s\*]+)+)\s*(?<funcName>(?:[A-Za-z_]\w+))\s*\((?<params>(?:[\s\S]*?)*)\)\s*[;|{]/";
+$outputText = '<?xml version="1.0" encoding="utf-8"?>' . "\n";
+$outputText = functionsTag($argumenty, $outputText);
+array_push($patterns, "/\/\*(.|\\n)*\*\//u");
+array_push($patterns, "/\/\/.*\\n/u");
+array_push($patterns, "/\"(.|\\n)*\"/u");
+array_push($patterns, "/\'(.|\\n)*\'/u");
+array_push($patterns, "/\#.*\\n/u");
+$allPattern = "/\s*(?<retType>(?:\s*[A-Za-z_]\w+[\s\*]+)+)\s*(?<funcName>(?:[A-Za-z_]\w+))\s*\((?<params>(?:[\s\S]*?)*)\)\s*[;|{]/u";
 foreach ($files as $file) {
 	$content = file_get_contents($file);
 	foreach($patterns as $pattern) {
@@ -265,8 +343,10 @@ foreach ($files as $file) {
 	}
 	preg_match_all($allPattern, $content, $match);
 	if (count($match["funcName"]) > 0) {		//test zda je v souboru vubec nejaka deklarace funkce
-		prepForWrite($argumenty, $match, $file);	
+		$outputText = prepForWrite($argumenty, $match, $file, $outputText);	
 	}
 }
+$outputText .= "</functions>\n";
+writeOutputFile($argumenty["output"], $outputText);
 
 ?>
