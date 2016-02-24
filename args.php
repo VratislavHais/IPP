@@ -216,18 +216,32 @@ function relativePath($path, $input) {
 	return substr($path, strlen($input));
 }
 
-
+/**
+* funkce zpracuje a zapise parametry funkce do promenne $outputText, ktera se bude zapisovat do vystupniho souboru
+* @param pole $params obsahuje zaznamy o argumentech funkce
+* @param string $outputText obsahuje dosavadni vysledek skriptu
+* @param string $spaces obsahuje pozadovany pocet mezer (pokud neni zadan parametr --pretty-xml, tak obsahuje prazdny retezec)
+* @param boolean $whitespace obsahuje true, pokud uzivatel zadal programu argument --remove-whitespace. V opacnem pripade obsahuje false
+*/
 function paramProcess($params, $outputText, $spaces, $whitespace) {
 	$counter = 1;
 	foreach ($params as $param) {
 		$param = preg_replace("/\w+$/", "", $param);
 		$param = trim($param);
+		if ($whitespace) {
+			$param = preg_replace("/\s+/", " ", $param);
+		}
 		$outputText .= $spaces . $spaces . 'param number="' . $counter . '" type="' . $param . '" />' . "\n";
 		$counter++;
 	}
 	return $outputText;
 }
 
+/**
+* prida do promenne outputText functions tag
+* @param pole $argumenty obsahuje zaznamy o argumentech programu
+* @param string $outputText obsahuje dosavadni vysledek skriptu
+*/
 function functionsTag($argumenty, $outputText) {
 	if ($argumenty["pretty"]) {
 		$outputText .= "\n";
@@ -330,11 +344,16 @@ $files = getInputFiles(realpath($argumenty["input"]));
 $patterns = array();
 $outputText = '<?xml version="1.0" encoding="utf-8"?>' . "\n";
 $outputText = functionsTag($argumenty, $outputText);
+//regex na odstraneni viceradkovych komentaru
 array_push($patterns, "/\/\*(.|\\n)*\*\//u");
+//regex na odstraneni jednoradkovych komentaru
 array_push($patterns, "/\/\/.*\\n/u");
+//regexy na odstraneni komentaru
 array_push($patterns, "/\"(.|\\n)*\"/u");
 array_push($patterns, "/\'(.|\\n)*\'/u");
-array_push($patterns, "/\#.*\\n/u");
+//regex na odstraneni maker
+array_push($patterns, "/#(.+?(\\\n)?)+\n?/u");
+//regularni vyraz, ktery vyhleda deklaraci funkci v souboru a vysledek ulozi v poli do 3 pojmenovanych casti
 $allPattern = "/\s*(?<retType>(?:\s*[A-Za-z_]\w+[\s\*]+)+)\s*(?<funcName>(?:[A-Za-z_]\w+))\s*\((?<params>(?:[\s\S]*?)*)\)\s*[;|{]/u";
 foreach ($files as $file) {
 	$content = file_get_contents($file);
